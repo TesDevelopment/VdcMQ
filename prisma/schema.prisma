@@ -1,0 +1,190 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String   @id
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String   @unique(map: "Account_pk")
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  riotID            String?
+  User              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Player            Player[]
+
+  @@unique([provider, providerAccountId])
+}
+
+model AgentStats {
+  agent            String        @id(map: "AgentStats_pk")
+  role             String?
+  kills            Int?
+  assists          Int?
+  rounds           Int?
+  kpr              Float?
+  kpr_above_avg    Float?
+  kpr_mod          Float?
+  apr              Float?
+  apr_above_avg    Float?
+  apr_mod          Float?
+  avg_norm_rr      Float?
+  avg_final_rating Float?
+  games_played     Int?
+  PlayerStats      PlayerStats[]
+}
+
+model Faq {
+  id       Int     @id(map: "Faq_pk") @default(autoincrement())
+  question String
+  answer   String
+  doShow   Boolean @default(true)
+}
+
+model Franchise {
+  id                                 Int        @id(map: "teams_primary") @default(autoincrement())
+  name                               String
+  slug                               String     @unique(map: "teams_unique")
+  logoFileName                       String?    @default("404.png")
+  isActive                           Boolean    @default(true)
+  Schedule_Schedule_team1ToFranchise Schedule[] @relation("Schedule_team1ToFranchise")
+  Schedule_Schedule_team2ToFranchise Schedule[] @relation("Schedule_team2ToFranchise")
+  Team                               Team[]
+}
+
+model ModLogs {
+  id Int @id(map: "ModLogs_pk") @default(autoincrement())
+}
+
+model PastGames {
+  id           String        @id(map: "PastGames_pk")
+  type         String?       @default("League Match")
+  seasonID     Int           @default(3)
+  riotResponse Json?         @db.Json
+  processed    Boolean       @default(false)
+  PlayerStats  PlayerStats[]
+}
+
+model Player {
+  id            String        @unique(map: "Player_pk2")
+  userID        String        @unique(map: "Player_pk")
+  team          Int?
+  tier          String?
+  primaryRiotID String?
+  isRegistered  Boolean       @default(false)
+  Account       Account?      @relation(fields: [primaryRiotID], references: [providerAccountId], onDelete: Cascade, map: "Player_Account_providerAccountId_fk")
+  Team          Team?         @relation(fields: [team], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "Player_Team_id_fk")
+  User          User          @relation(fields: [userID], references: [id], onDelete: Cascade, map: "Player_User_id_fk")
+
+  Rating        Float?
+  MMR           Float?
+
+  Games   PlayerStats[]
+}
+
+model PlayerStats {
+  userID        String
+  agent         String
+  gameID        String?
+  acs           Int?
+  kills         Int?
+  deaths        Int?
+  assists       Int?
+  adr           Float?
+  first_kills   Int?
+  first_death   Int?
+  kast          Float?
+  rounds_played Int?
+  id            Int        @id(map: "PlayerStats_pk") @default(autoincrement())
+  AgentStats    AgentStats @relation(fields: [agent], references: [agent], onDelete: Cascade, map: "PlayerStats_AgentStats_agent_fk")
+  PastGames     PastGames? @relation(fields: [gameID], references: [id], onDelete: Cascade, map: "PlayerStats_PastGames_id_fk")
+  Player        Player     @relation(fields: [userID], references: [userID], onDelete: Cascade, map: "PlayerStats_Player_userID_fk")
+}
+
+model Schedule {
+  id                                  Int        @id(map: "Schedule_pk") @default(autoincrement())
+  date                                DateTime?  @db.Timestamptz(6)
+  team1                               Int?
+  team2                               Int
+  isMOTW                              Boolean    @default(false)
+  tier                                String     @default("premier")
+  Franchise_Schedule_team1ToFranchise Franchise? @relation("Schedule_team1ToFranchise", fields: [team1], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "Schedule_Teams_id_fk")
+  Franchise_Schedule_team2ToFranchise Franchise  @relation("Schedule_team2ToFranchise", fields: [team2], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "Schedule_Teams_id_fk2")
+}
+
+model Session {
+  id           String   @id
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  User         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Stream {
+  id         Int     @id(map: "stream_primary") @default(autoincrement())
+  isLive     Boolean @default(false)
+  streamLink String
+  message    String?
+}
+
+model TierStats {
+  name String @id()
+
+  kpr Float?
+  apr Float?
+  kast Float?
+  adr Float?
+  increments Int @default(0)
+}
+
+model Team {
+  id        Int       @id(map: "Team_pk") @default(autoincrement())
+  franchise Int
+  name      String?   @unique(map: "Team_pk2")
+  tier      String?
+  Player    Player[]
+  Franchise Franchise @relation(fields: [franchise], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "Team_Franchise_slug_fk")
+}
+
+model Transactions {
+  id      Int       @id(map: "Transactions_pk") @default(autoincrement())
+  date    DateTime  @default(now()) @db.Timestamp(0)
+  season  Int       @default(3)
+  type    String
+  team1   String
+  team2   String?
+  tier    String?
+  player  String
+  expires DateTime? @db.Date
+}
+
+model User {
+  id            String    @id
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  isStaff       Boolean   @default(false)
+  Account       Account[]
+  Player        Player?
+  Session       Session[]
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
